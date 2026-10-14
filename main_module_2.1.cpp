@@ -1,14 +1,12 @@
 #include <Arduino.h>
-
-// ───────── Конфігурація: жодних «магічних чисел» у решті коду ─────────
 struct Config {
   static constexpr uint8_t  LED_PIN            = 5;
   static constexpr bool     LED_ACTIVE_HIGH    = true;
   static constexpr uint8_t  BUTTON_PIN         = 15;
-  static constexpr uint8_t  BUTTON_PRESSED     = LOW;     // кнопка на GND + INPUT_PULLUP
+  static constexpr uint8_t  BUTTON_PRESSED     = LOW;
   static constexpr uint32_t BLINK_INTERVAL_MS  = 500;
   static constexpr uint32_t DEBOUNCE_MS        = 50;
-  static constexpr uint32_t STATS_WINDOW       = 1000;    // скільки ітерацій у звіті
+  static constexpr uint32_t STATS_WINDOW       = 1000;
   static constexpr uint32_t SERIAL_BAUD        = 115200;
 };
 static_assert(Config::BLINK_INTERVAL_MS > 0, "Інтервал блимання має бути > 0");
@@ -22,7 +20,6 @@ constexpr LedMode nextMode(LedMode m) {
                                 : LedMode::Blink;
 }
 
-// ───────── Драйвер світлодіода ─────────
 class Led {
 public:
   constexpr Led(uint8_t pin, bool activeHigh) : pin_(pin), activeHigh_(activeHigh) {}
@@ -46,7 +43,6 @@ private:
   LedState      state_ = LedState::Off;
 };
 
-// ───────── Статистика часу ітерації loop() ─────────
 class LoopStats {
 public:
   void add(uint32_t us) {
@@ -74,16 +70,14 @@ private:
   uint32_t max_   = 0;
 };
 
-// ───────── Єдина «глобальна» змінна для ISR ─────────
 namespace {
 volatile bool g_buttonEvent = false;
 
 void IRAM_ATTR onButtonIsr() {
-  g_buttonEvent = true;            // ISR мінімальний: лише прапорець
+  g_buttonEvent = true;
 }
-}  // namespace
+}
 
-// ───────── Застосунок (superloop) ─────────
 class Application {
 public:
   void begin() {
@@ -101,13 +95,13 @@ public:
     handleButton(nowMs);
     updateLed(nowMs);
 
-    stats_.add(micros() - startUs);          // замір до друку, щоб друк не спотворював результат
+    stats_.add(micros() - startUs);
     if (stats_.ready()) stats_.reportAndReset();
   }
 
 private:
   bool takeButtonEvent() {
-    noInterrupts();                          // атомарно прочитати і скинути прапорець
+    noInterrupts();
     const bool event = g_buttonEvent;
     g_buttonEvent = false;
     interrupts();
@@ -116,8 +110,8 @@ private:
 
   void handleButton(uint32_t nowMs) {
     if (!takeButtonEvent()) return;
-    if (nowMs - lastPressMs_ < Config::DEBOUNCE_MS) return;                 // антидребезг
-    if (digitalRead(Config::BUTTON_PIN) != Config::BUTTON_PRESSED) return;  // це не натискання
+    if (nowMs - lastPressMs_ < Config::DEBOUNCE_MS) return;
+    if (digitalRead(Config::BUTTON_PIN) != Config::BUTTON_PRESSED) return;
 
     lastPressMs_ = nowMs;
     mode_ = nextMode(mode_);
@@ -138,7 +132,7 @@ private:
   void updateLed(uint32_t nowMs) {
     if (mode_ != LedMode::Blink) return;
     if (nowMs - lastToggleMs_ >= Config::BLINK_INTERVAL_MS) {
-      lastToggleMs_ += Config::BLINK_INTERVAL_MS;                           // без накопичення похибки
+      lastToggleMs_ += Config::BLINK_INTERVAL_MS;
       led_.set(led_.state() == LedState::On ? LedState::Off : LedState::On);
     }
   }
