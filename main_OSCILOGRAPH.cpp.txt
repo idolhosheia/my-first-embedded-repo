@@ -1,0 +1,16 @@
+#include <Arduino.h>
+const int buttonPullup = 12;
+
+void setup()
+{
+    Serial.begin(9600);
+    pinMode(buttonPullup, INPUT);
+}
+
+void loop()
+{
+    int upVal = digitalRead(buttonPullup);
+
+    Serial.printf("buttonPullup %d \n ", upVal);
+    delay(100);
+}
