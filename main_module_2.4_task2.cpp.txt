@@ -1,0 +1,44 @@
+#include <Arduino.h>
+
+constexpr uint8_t BUTTON_PIN = 16;
+constexpr uint32_t DEBOUNCE_MS = 50;
+
+volatile bool buttonEvent = false;
+uint32_t pressCount = 0;
+uint32_t lastAcceptMs = 0;
+
+void IRAM_ATTR buttonISR()
+{
+    buttonEvent = true;
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+
+    Serial.println("Button bounce demo started. Press the button...");
+}
+
+void loop()
+{
+    if (buttonEvent)
+    {
+        buttonEvent = false;
+
+        uint32_t now = millis();
+
+        if (now - lastAcceptMs >= DEBOUNCE_MS)
+        {
+            lastAcceptMs = now;
+            pressCount++;
+
+            Serial.printf("[%lu ms] Interrupt count: %lu\n",
+              (unsigned long)now,
+              (unsigned long)pressCount);
+
+        }
+    }
+}
