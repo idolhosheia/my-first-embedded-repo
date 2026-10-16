@@ -1,8 +1,8 @@
 #include <Arduino.h>
 
-constexpr uint8_t RELAY_PIN   = 4;      // керування котушкою
-constexpr uint8_t CONTACT_PIN = 5;      // NO-контакт, COM -> GND
-constexpr uint8_t RELAY_ON    = HIGH;   // для модуля з низьким рівнем: LOW
+constexpr uint8_t RELAY_PIN   = 4;
+constexpr uint8_t CONTACT_PIN = 5;
+constexpr uint8_t RELAY_ON    = HIGH;
 constexpr uint8_t RELAY_OFF   = !RELAY_ON;
 constexpr size_t  MAX_EDGES   = 64;
 constexpr int     RUNS        = 20;
@@ -18,13 +18,13 @@ void IRAM_ATTR onEdge() {
 struct Result { uint32_t delayUs; uint32_t bounceUs; uint8_t edges; bool ok; };
 
 Result measure(bool energize) {
-  digitalWrite(RELAY_PIN, energize ? RELAY_OFF : RELAY_ON); // початковий стан
-  delay(100);                                               // дати реле заспокоїтись
+  digitalWrite(RELAY_PIN, energize ? RELAY_OFF : RELAY_ON);
+  delay(100);
   noInterrupts(); edgeCnt = 0; interrupts();
 
   uint32_t t0 = micros();
   digitalWrite(RELAY_PIN, energize ? RELAY_ON : RELAY_OFF);
-  delay(100);                                               // чекаємо кінця брязкоту
+  delay(100);
 
   noInterrupts();
   uint8_t  n     = edgeCnt;
@@ -57,5 +57,5 @@ void loop() {
   }
   Serial.printf("Середнє: спрацювання %lu us, відпускання %lu us\n",
                 sumOp / RUNS, sumRel / RUNS);
-  while (true) delay(1000);   // один цикл вимірювань
+  while (true) delay(1000);
 }
