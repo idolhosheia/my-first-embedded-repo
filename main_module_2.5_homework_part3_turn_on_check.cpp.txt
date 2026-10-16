@@ -1,0 +1,89 @@
+#include <Arduino.h>
+#include "esp_timer.h"
+#include "esp_task_wdt.h"
+
+// debug
+constexpr uint64_t PERIOD_US = 20ULL * 1000000ULL; // кожні 20 секунд
+constexpr uint64_t ON_TIME_US = 5ULL * 1000000ULL; // працює 5 секунд
+
+// realistic values for the fan controller
+// constexpr uint64_t PERIOD_US  = 3600ULL * 1000000ULL; // 1 година
+// constexpr uint64_t ON_TIME_US =  900ULL * 1000000ULL; // 15 хвилин
+
+constexpr uint8_t FAN_PIN = 4;
+constexpr uint32_t WDT_TIMEOUT_SEC = 5;
+
+esp_timer_handle_t periodTimer = nullptr;
+esp_timer_handle_t offTimer = nullptr;
+
+volatile bool fanIsOn = false;
+
+void turnOffCallback(void *arg)
+{
+  digitalWrite(FAN_PIN, LOW);
+  fanIsOn = false;
+  Serial.println("[FAN] OFF");
+}
+
+void turnOnCallback(void *arg)
+{
+  if (fanIsOn)
+  {
+    Serial.printf("[%lu ms] STATE: skip (already ON)\n", millis()); //захист від повторного включення вентилятора, якщо він вже увімкнений
+    return;
+  }
+
+  digitalWrite(FAN_PIN, HIGH);
+  fanIsOn = true;
+  Serial.println("[FAN] ON");
+
+  esp_timer_stop(offTimer);
+  esp_timer_start_once(offTimer, ON_TIME_US);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+
+  pinMode(FAN_PIN, OUTPUT);
+  digitalWrite(FAN_PIN, LOW);
+
+  // Watchdog
+  esp_task_wdt_init(WDT_TIMEOUT_SEC, true);
+  esp_task_wdt_add(NULL);
+
+  // Таймер вимкнення (one-shot)
+  const esp_timer_create_args_t offArgs = {
+      .callback = &turnOffCallback,
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "fan_off"};
+  esp_timer_create(&offArgs, &offTimer);
+
+  // Періодичний таймер увімкнення
+  const esp_timer_create_args_t periodArgs = {
+      .callback = &turnOnCallback,
+      .arg = nullptr,
+      .dispatch_method = ESP_TIMER_TASK,
+      .name = "fan_period"};
+  esp_timer_create(&periodArgs, &periodTimer);
+  esp_timer_start_periodic(periodTimer, PERIOD_US);
+
+  Serial.println("Fan controller started");
+  Serial.printf("Period: %llu s, On: %llu s\n",
+                PERIOD_US / 1000000ULL,
+                ON_TIME_US / 1000000ULL);
+}
+
+void loop()
+{
+  esp_task_wdt_reset();
+  static uint32_t lastLog = 0;
+  if (millis() - lastLog >= 5000)
+  {
+    lastLog = millis();
+    Serial.printf("[%lu ms] STATUS: %s\n",
+                  millis(),
+                  fanIsOn ? "ON" : "OFF");
+  }
+}
