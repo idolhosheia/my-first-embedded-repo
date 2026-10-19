@@ -1,0 +1,78 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+
+static const char *TAG = "debounce_poll";
+
+#define BUTTON_GPIO   GPIO_NUM_16
+#define POLL_MS       10
+#define DEBOUNCE_MS   50
+
+typedef enum {
+    BTN_RELEASED,
+    BTN_DEBOUNCE_PRESS,
+    BTN_PRESSED,
+    BTN_DEBOUNCE_RELEASE
+} btn_state_t;
+
+void app_main(void)
+{
+    gpio_config_t io_conf = {
+        .pin_bit_mask  = (1ULL << BUTTON_GPIO),
+        .mode          = GPIO_MODE_INPUT,
+        .pull_up_en    = GPIO_PULLUP_ENABLE,
+        .pull_down_en  = GPIO_PULLDOWN_DISABLE,
+        .intr_type     = GPIO_INTR_DISABLE   // без interrupt
+    };
+    gpio_config(&io_conf);
+
+    btn_state_t state = BTN_RELEASED;
+    int64_t state_start_us = 0;
+    uint32_t press_count = 0;
+
+    ESP_LOGI(TAG, "Polling + state-machine debounce. Press the button...");
+
+    while (1) {
+        int64_t now_us = esp_timer_get_time();
+        bool raw_pressed = (gpio_get_level(BUTTON_GPIO) == 0);  // LOW = натиснута
+
+        switch (state) {
+        case BTN_RELEASED:
+            if (raw_pressed) {
+                state = BTN_DEBOUNCE_PRESS;
+                state_start_us = now_us;
+            }
+            break;
+
+        case BTN_DEBOUNCE_PRESS:
+            if (!raw_pressed) {
+                state = BTN_RELEASED;  // брязкіт
+            } else if ((now_us - state_start_us) / 1000 >= DEBOUNCE_MS) {
+                state = BTN_PRESSED;
+                press_count++;
+                ESP_LOGI(TAG, "Valid press: %lu", (unsigned long)press_count);
+            }
+            break;
+
+        case BTN_PRESSED:
+            if (!raw_pressed) {
+                state = BTN_DEBOUNCE_RELEASE;
+                state_start_us = now_us;
+            }
+            break;
+
+        case BTN_DEBOUNCE_RELEASE:
+            if (raw_pressed) {
+                state = BTN_PRESSED;  // ще брязкіт при відпусканні
+            } else if ((now_us - state_start_us) / 1000 >= DEBOUNCE_MS) {
+                state = BTN_RELEASED;
+            }
+            break;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(POLL_MS));  // опитування кожні 10 мс
+    }
+}
