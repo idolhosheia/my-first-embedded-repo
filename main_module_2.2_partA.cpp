@@ -1,0 +1,61 @@
+#include <Arduino.h>
+
+constexpr uint8_t RELAY_PIN   = 4;
+constexpr uint8_t CONTACT_PIN = 5;
+constexpr uint8_t RELAY_ON    = HIGH;
+constexpr uint8_t RELAY_OFF   = !RELAY_ON;
+constexpr size_t  MAX_EDGES   = 64;
+constexpr int     RUNS        = 20;
+
+volatile uint32_t edgeT[MAX_EDGES];
+volatile uint8_t  edgeCnt = 0;
+
+void IRAM_ATTR onEdge() {
+  uint32_t t = micros();
+  if (edgeCnt < MAX_EDGES) edgeT[edgeCnt++] = t;
+}
+
+struct Result { uint32_t delayUs; uint32_t bounceUs; uint8_t edges; bool ok; };
+
+Result measure(bool energize) {
+  digitalWrite(RELAY_PIN, energize ? RELAY_OFF : RELAY_ON);
+  delay(100);
+  noInterrupts(); edgeCnt = 0; interrupts();
+
+  uint32_t t0 = micros();
+  digitalWrite(RELAY_PIN, energize ? RELAY_ON : RELAY_OFF);
+  delay(100);
+
+  noInterrupts();
+  uint8_t  n     = edgeCnt;
+  uint32_t first = n ? edgeT[0]     : 0;
+  uint32_t last  = n ? edgeT[n - 1] : 0;
+  interrupts();
+
+  return { first - t0, last - first, n, n > 0 };
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  pinMode(CONTACT_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(CONTACT_PIN), onEdge, CHANGE);
+  delay(1000);
+  Serial.println("run; operate_us; op_bounce_us; op_edges; release_us; rel_bounce_us; rel_edges");
+}
+
+void loop() {
+  static uint32_t sumOp = 0, sumRel = 0;
+  for (int i = 1; i <= RUNS; i++) {
+    Result on  = measure(true);
+    Result off = measure(false);
+    Serial.printf("  %d; %lu;            %lu;        %u; %lu;             %lu;        %u\n", i,
+                  on.delayUs,  on.bounceUs,  on.edges,
+                  off.delayUs, off.bounceUs, off.edges);
+    sumOp += on.delayUs; sumRel += off.delayUs;
+  }
+  Serial.printf("Середнє: спрацювання %lu us, відпускання %lu us\n",
+                sumOp / RUNS, sumRel / RUNS);
+  while (true) delay(1000);
+}

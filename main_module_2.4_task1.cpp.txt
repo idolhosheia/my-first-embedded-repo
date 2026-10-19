@@ -1,0 +1,32 @@
+#include <Arduino.h>
+
+constexpr uint8_t BUTTON_PIN = 16;
+
+volatile uint32_t pressCount = 0;
+uint32_t lastPrinted = 0;
+
+void IRAM_ATTR buttonISR()
+{
+    pressCount++; // тільки інкремент, нічого більше
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+
+    Serial.println("Button bounce demo started. Press the button...");
+}
+
+void loop()
+{
+    if (pressCount != lastPrinted)
+    {
+        lastPrinted = pressCount;
+        Serial.printf("Interrupt count: %lu\n",
+                      (unsigned long)lastPrinted);
+    }
+}
