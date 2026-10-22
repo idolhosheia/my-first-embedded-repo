@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/gpio.h"
+#include "esp_log.h"
+#include "esp_attr.h"
+#include "esp_timer.h"
+
+static const char *TAG = "debounce_time";
+
+#define BUTTON_GPIO  GPIO_NUM_16
+#define DEBOUNCE_MS  50
+
+static volatile bool button_event = false;
+
+static uint32_t press_count = 0;
+static int64_t last_accept_us = 0;
+
+static void IRAM_ATTR button_isr_handler(void *arg)
+{
+    button_event = true;
+}
+
+void app_main(void)
+{
+    gpio_config_t io_conf = {
+        .pin_bit_mask  = (1ULL << BUTTON_GPIO),
+        .mode          = GPIO_MODE_INPUT,
+        .pull_up_en    = GPIO_PULLUP_ENABLE,
+        .pull_down_en  = GPIO_PULLDOWN_DISABLE,
+        .intr_type     = GPIO_INTR_NEGEDGE
+    };
+    gpio_config(&io_conf);
+
+    gpio_install_isr_service(0);
+    gpio_isr_handler_add(BUTTON_GPIO, button_isr_handler, NULL);
+
+    ESP_LOGI(TAG, "Time-based debounce started");
+
+    while (1) {
+        if (button_event) {
+            button_event = false;
+
+            int64_t now_us = esp_timer_get_time();
+            if ((now_us - last_accept_us) / 1000 >= DEBOUNCE_MS) {
+                last_accept_us = now_us;
+                press_count++;
+                ESP_LOGI(TAG, "Valid press: %lu", (unsigned long)press_count);
+            }
+        }
+
+        // ОБОВ'ЯЗКОВО віддати CPU idle-задачі
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
