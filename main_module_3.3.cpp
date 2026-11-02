@@ -1,22 +1,20 @@
 #include <Arduino.h>
 
-// ---------- Піни ----------
-constexpr uint8_t POT_PIN  = 4;   // ADC1
-constexpr uint8_t LED_PIN  = 5;   // PWM → LED
-constexpr uint8_t MOTOR_PIN = 6;  // PWM → база/вхід драйвера двигуна
+constexpr uint8_t POT_PIN  = 4;
+constexpr uint8_t LED_PIN  = 5;
+constexpr uint8_t MOTOR_PIN = 6;
 
-// ---------- PWM ----------
+
 constexpr int LED_CH    = 0;
 constexpr int MOTOR_CH  = 1;
-constexpr int PWM_FREQ  = 5000;   // 5 kHz
-constexpr int PWM_RES   = 12;     // 0..4095 (як ADC)
+constexpr int PWM_FREQ  = 5000;
+constexpr int PWM_RES   = 12;
 
 void setup() {
   Serial.begin(115200);
 
   analogReadResolution(12);
 
-  // Два незалежні канали LEDC
   ledcSetup(LED_CH,   PWM_FREQ, PWM_RES);
   ledcSetup(MOTOR_CH, PWM_FREQ, PWM_RES);
   ledcAttachPin(LED_PIN,   LED_CH);
@@ -28,7 +26,6 @@ void setup() {
 void loop() {
   int raw = analogRead(POT_PIN);   // 0..4095
 
-  // Однакова «команда», але різні виходи
   ledcWrite(LED_CH,   raw);
   ledcWrite(MOTOR_CH, raw);
 
