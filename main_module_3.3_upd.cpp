@@ -4,7 +4,6 @@ constexpr uint8_t POT_PIN  = 4;
 constexpr uint8_t LED_PIN  = 5;
 constexpr uint8_t MOTOR_PIN = 6;
 
-
 constexpr int LED_CH    = 0;
 constexpr int MOTOR_CH  = 1;
 constexpr int PWM_FREQ  = 5000;
@@ -24,7 +23,7 @@ void setup() {
 }
 
 void loop() {
-  int raw = analogRead(POT_PIN);   // 0..4095
+  int raw = analogRead(POT_PIN);
 
   ledcWrite(LED_CH,   raw);
   ledcWrite(MOTOR_CH, raw);
