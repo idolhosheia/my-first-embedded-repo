@@ -1,0 +1,39 @@
+#include <Arduino.h>
+
+const int buttonBoot = 0; 
+
+const int buttonPullUp = 14;
+const int buttonPullDown = 12;
+const int buttonFloat = 15;
+
+unsigned long previousMillis = 0;
+const long interval = 50;
+
+void setup() {
+  Serial.begin(9600);
+  
+  pinMode(buttonBoot, INPUT); 
+  
+  pinMode(buttonPullUp, INPUT_PULLUP);
+  pinMode(buttonPullDown, INPUT_PULLDOWN);
+  pinMode(buttonFloat, INPUT);
+}
+
+void loop() {
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    
+    int bootVal = digitalRead(buttonBoot); 
+    
+    int upVal = digitalRead(buttonPullUp);
+    int downVal = digitalRead(buttonPullDown);
+    int floatVal = digitalRead(buttonFloat);
+    
+    Serial.printf("BOOT %d | ", bootVal);
+    Serial.printf("PullUp %d | ", upVal);
+    Serial.printf("PullDown %d | ", downVal);
+    Serial.printf("Float %d \n", floatVal);
+  }
+}

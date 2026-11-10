@@ -1,0 +1,85 @@
+#include <Arduino.h>
+
+constexpr uint8_t BUTTON_PIN = 16;
+constexpr uint32_t POLL_MS = 10;
+constexpr uint32_t DEBOUNCE_MS = 50;
+
+enum class BtnState : uint8_t
+{
+    Released,
+    DebouncePress,
+    Pressed,
+    DebounceRelease
+};
+
+BtnState state = BtnState::Released;
+uint32_t stateStartMs = 0;
+uint32_t lastPollMs = 0;
+uint32_t pressCount = 0;
+
+void setup()
+{
+    Serial.begin(115200);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    Serial.println("Polling + state-machine debounce. Press the button...");
+}
+
+void loop()
+{
+    uint32_t now = millis();
+
+    if (now - lastPollMs < POLL_MS)
+    {
+        return;
+    }
+    lastPollMs = now;
+
+    bool rawPressed = (digitalRead(BUTTON_PIN) == LOW); // INPUT_PULLUP
+
+    switch (state)
+    {
+    case BtnState::Released:
+        if (rawPressed)
+        {
+            state = BtnState::DebouncePress;
+            stateStartMs = now;
+        }
+        break;
+
+    case BtnState::DebouncePress:
+        if (!rawPressed)
+        {
+
+            state = BtnState::Released;
+        }
+        else if (now - stateStartMs >= DEBOUNCE_MS)
+        {
+
+            state = BtnState::Pressed;
+            pressCount++;
+            Serial.printf("Valid press: %lu\n", (unsigned long)pressCount);
+        }
+        break;
+
+    case BtnState::Pressed:
+        if (!rawPressed)
+        {
+            state = BtnState::DebounceRelease;
+            stateStartMs = now;
+        }
+        break;
+
+    case BtnState::DebounceRelease:
+        if (rawPressed)
+        {
+
+            state = BtnState::Pressed;
+        }
+        else if (now - stateStartMs >= DEBOUNCE_MS)
+        {
+
+            state = BtnState::Released;
+        }
+        break;
+    }
+}

@@ -1,0 +1,126 @@
+#include <Arduino.h>
+
+// Налаштування піна та параметрів ШІМ
+const int squarePin1 = 36;  // Вихід ШІМ-сигналу (Канал 1)
+const int squarePin2 = 37;  // Вихід ШІМ-сигналу (Канал 1)
+const int squarePin3 = 38;  // Вихід ШІМ-сигналу (Канал 2 - ПОВНІСТЮ ФІКСОВАНИЙ)
+const int ledcChannel1 = 0; // Канал ШІМ 1 (Регульований)
+const int ledcChannel2 = 2; // Канал ШІМ 2 (Ізольований / Фіксований)
+const int resolution = 8;   // Роздільна здатність 8 біт (0...255)
+
+// Органи керування
+const int resistorPin = 1;   // Пін для єдиного потенціометра
+const int bootButtonPin = 0; // Вбудована кнопка BOOT на ESP32
+
+// Діапазон частот для Першого Каналу
+const uint32_t minFrequency = 100;
+const uint32_t maxFrequency = 20000;
+
+// ФІКСОВАНІ ПАРАМЕТРИ ДЛЯ ДРУГОГО КАНАЛУ
+const uint32_t fixedFrequencyCh2 = 5000; // Наприклад, 5000 Гц (задайте будь-яку потрібну)
+const int fixedDutyCh2 = 128;            // Скважність 50% (128 з 255)
+
+// Змінні станів сигналів Першого Каналу
+uint32_t currentFrequency = 1000; // Поточна частота (старт з 1 кГц)
+int currentDuty = 127;            // Поточна шпажність (старт з 50%)
+
+// Стани інтерфейсу
+enum Mode
+{
+    REG_FREQUENCY,
+    REG_DUTY
+};
+Mode currentMode = REG_FREQUENCY; // Початковий режим — регулювання частоти
+
+// Змінна для відстеження попереднього стану кнопки
+bool lastButtonState = HIGH;
+
+int readStabilized(int pin)
+{
+    long sum = 0;
+    const int samples = 16;
+    for (int i = 0; i < samples; i++)
+    {
+        sum += analogRead(pin);
+        delayMicroseconds(50);
+    }
+    return sum / samples;
+}
+
+void setup()
+{
+    Serial.begin(115200);
+    analogReadResolution(10); // Роздільна здатність 10 біт -> значення 0...1023
+
+    pinMode(bootButtonPin, INPUT);
+    pinMode(resistorPin, INPUT);
+
+    // Ініціалізація Каналу 1 (динамічний)
+
+    ledcSetup(ledcChannel1, currentFrequency, resolution);
+    ledcAttachPin(squarePin1, ledcChannel1);
+    ledcAttachPin(squarePin2, ledcChannel1);
+    ledcWrite(ledcChannel1, currentDuty);
+
+    // Ініціалізація Каналу 2 (строго фіксовані параметри)
+    ledcSetup(ledcChannel2, fixedFrequencyCh2, resolution);
+    ledcAttachPin(squarePin3, ledcChannel2);
+    ledcWrite(ledcChannel2, fixedDutyCh2); // Записуємо фіксовану скважність
+
+    Serial.println("Систему запущено. Потенціометр керує ТІЛЬКИ Каналом 1.");
+}
+
+void loop()
+{
+    // 1. ОПИТУВАННЯ КНОПКИ
+    bool currentButtonState = digitalRead(bootButtonPin);
+
+    if (currentButtonState != lastButtonState)
+    {
+        delay(10); // Базовий антибрязкіт для стабільності
+        if (currentButtonState == LOW)
+        {
+            if (currentMode == REG_FREQUENCY)
+            {
+                currentMode = REG_DUTY;
+                Serial.println("=== Режим змінено: Регулювання ШПАЖНОСТІ Каналу 1 (%) ===");
+            }
+            else
+            {
+                currentMode = REG_FREQUENCY;
+                Serial.println("=== Режим змінено: Регулювання ЧАСТОТИ Каналу 1 (Гц) ===");
+            }
+        }
+        lastButtonState = currentButtonState;
+    }
+
+    // 2. ЗЧИТУВАННЯ ПОТЕНЦІОМЕТРА ТА РЕГУЛЮВАННЯ
+    int potValue = readStabilized(resistorPin);
+
+    if (currentMode == REG_FREQUENCY)
+    {
+        currentFrequency = map(potValue, 0, 1023, minFrequency, maxFrequency);
+        currentFrequency = constrain(currentFrequency, minFrequency, maxFrequency);
+
+        // Змінюється частота ТІЛЬКИ на ledcChannel1
+        ledcChangeFrequency(ledcChannel1, currentFrequency, resolution);
+
+        Serial.print("[Ch1] Частота: ");
+        Serial.print(currentFrequency);
+        Serial.println(" Гц (Ch2 не змінюється)");
+    }
+    else if (currentMode == REG_DUTY)
+    {
+        currentDuty = map(potValue, 0, 1023, 0, 255);
+
+        // Змінюється скважність ТІЛЬКИ на ledcChannel1
+        ledcWrite(ledcChannel1, currentDuty);
+
+        int dutyPercent = map(currentDuty, 0, 255, 0, 100);
+        Serial.print("[Ch1] Шпажність: ");
+        Serial.print(dutyPercent);
+        Serial.println(" % (Ch2 не змінюється)");
+    }
+
+    delay(20);
+}

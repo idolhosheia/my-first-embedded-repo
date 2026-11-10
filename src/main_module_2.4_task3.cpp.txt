@@ -1,0 +1,66 @@
+#include <Arduino.h>
+
+constexpr uint8_t BUTTON_PIN = 16;
+constexpr uint32_t DEBOUNCE_MS = 50;
+
+volatile bool buttonEvent = false;
+bool pressHandled = false;
+
+uint32_t pressCount = 0;
+uint32_t lastAcceptMs = 0;
+uint32_t releaseStartMs = 0;
+bool releasing = false;
+
+void IRAM_ATTR buttonISR()
+{
+    buttonEvent = true;
+}
+
+void setup()
+{
+    Serial.begin(115200);
+
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, FALLING);
+
+    Serial.println("State-based debounce (stable release). Press the button...");
+}
+
+void loop()
+{
+    uint32_t now = millis();
+
+    if (buttonEvent)
+    {
+        buttonEvent = false;
+
+        if (digitalRead(BUTTON_PIN) == LOW &&
+            !pressHandled &&
+            (now - lastAcceptMs >= DEBOUNCE_MS))
+        {
+            pressHandled = true;
+            releasing = false;
+            lastAcceptMs = now;
+            pressCount++;
+
+            Serial.printf("Valid press: %lu\n", (unsigned long)pressCount);
+        }
+    }
+
+    if (digitalRead(BUTTON_PIN) == HIGH)
+    {
+        if (!releasing)
+        {
+            releasing = true;
+            releaseStartMs = now;
+        }
+        else if (now - releaseStartMs >= DEBOUNCE_MS)
+        {
+            pressHandled = false;
+        }
+    }
+    else
+    {
+        releasing = false;
+    }
+}

@@ -1,0 +1,45 @@
+#include <Arduino.h>
+
+const int LED1 = 4;
+const int LED2 = 5;
+const int LED3 = 6;
+
+const unsigned long interval1 = 200;
+const unsigned long interval2 = 500;
+const unsigned long interval3 = 1000;
+
+unsigned long lastToggle1 = 0;
+unsigned long lastToggle2 = 0;
+unsigned long lastToggle3 = 0;
+
+bool state1 = false;
+bool state2 = false;
+bool state3 = false;
+
+void setup() {
+  pinMode(LED1, OUTPUT);
+  pinMode(LED2, OUTPUT);
+  pinMode(LED3, OUTPUT);
+}
+
+void loop() {
+  unsigned long now = millis();
+
+  if (now - lastToggle1 >= interval1) {
+    lastToggle1 = now;
+    state1 = !state1;
+    digitalWrite(LED1, state1);
+  }
+
+  if (now - lastToggle2 >= interval2) {
+    lastToggle2 = now;
+    state2 = !state2;
+    digitalWrite(LED2, state2);
+  }
+
+  if (now - lastToggle3 >= interval3) {
+    lastToggle3 = now;
+    state3 = !state3;
+    digitalWrite(LED3, state3);
+  }
+}

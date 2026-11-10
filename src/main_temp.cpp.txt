@@ -1,0 +1,25 @@
+#include <Arduino.h>
+
+unsigned long previousMillis = 0;
+const long interval = 1000;
+
+void setup()
+{
+    Serial.begin(9600);
+    //delay(2000);
+    //Serial.print("Starting temperature monitoring...\n");
+}
+
+void loop()
+{
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - previousMillis >= interval)
+    {
+        previousMillis = currentMillis;
+
+        float chipTempCelsius = temperatureRead();
+
+        Serial.printf("Temperature ESP32-S3: %.2f °C\n", chipTempCelsius);
+    }
+}

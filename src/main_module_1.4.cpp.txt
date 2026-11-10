@@ -1,0 +1,62 @@
+#include <Arduino.h>
+
+const int ledRed = 15;
+const int ledGreen = 16;
+const int buttonExternal = 21;
+const int buttonBoot = 0;
+
+int mode = 1;
+
+unsigned long previousMillis = 0;
+unsigned long interval = 100;
+
+void setup()
+{
+    Serial.begin(9600);
+
+    pinMode(ledRed, OUTPUT);
+    pinMode(ledGreen, OUTPUT);
+
+    pinMode(buttonExternal, INPUT_PULLUP);
+    pinMode(buttonBoot, INPUT);
+}
+
+void loop()
+{
+    unsigned long currentMillis = millis();
+    int extVal = digitalRead(buttonExternal);
+    int bootVal = digitalRead(buttonBoot);
+    if (extVal == LOW)
+    {
+        mode = 1;
+        interval = 200;
+        Serial.println("Mode 1 (Fast Sync)");
+        delay(50);
+        while (digitalRead(buttonExternal) == LOW);
+    }
+
+    if (bootVal == LOW)
+    {
+        mode = 2;
+        interval = 1000;
+        Serial.println("Mode 2 (Slow Alternate)");
+        delay(50);
+        while (digitalRead(buttonBoot) == LOW);
+    }
+
+    if (currentMillis - previousMillis >= interval)
+    {
+        previousMillis = currentMillis;
+
+        if (mode == 1)
+        {
+            digitalWrite(ledRed, !digitalRead(ledRed));
+            digitalWrite(ledGreen, digitalRead(ledRed));
+        }
+        else
+        {
+            digitalWrite(ledRed, !digitalRead(ledRed));
+            digitalWrite(ledGreen, !digitalRead(ledRed));
+        }
+    }
+}

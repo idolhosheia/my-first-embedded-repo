@@ -1,0 +1,55 @@
+#include <Arduino.h>
+
+#define LDR_PIN 4
+#define LED_PIN 5
+
+#define THRESHOLD_DARK  1200
+#define THRESHOLD_LIGHT 3000
+
+bool ledState = false;
+
+void setup() {
+  Serial.begin(115200);
+
+  analogReadResolution(12);
+
+  pinMode(LED_PIN, OUTPUT);
+
+  digitalWrite(LED_PIN, LOW);
+
+  Serial.println("Stage 2: ADC -> LED");
+}
+
+void loop() {
+
+  int adcValue = analogRead(LDR_PIN);
+
+  if (adcValue < THRESHOLD_DARK) {
+    ledState = true;
+  }
+  else if (adcValue > THRESHOLD_LIGHT) {
+    ledState = false;
+  }
+
+  digitalWrite(LED_PIN, ledState ? HIGH : LOW);
+
+  Serial.print("ADC = ");
+  Serial.print(adcValue);
+
+  Serial.print(" | LED = ");
+  Serial.print(ledState ? "ON" : "OFF");
+
+  Serial.print(" | ");
+
+  if (adcValue < THRESHOLD_DARK) {
+    Serial.println("DARK");
+  }
+  else if (adcValue > THRESHOLD_LIGHT) {
+    Serial.println("LIGHT");
+  }
+  else {
+    Serial.println("HYSTERESIS");
+  }
+
+  delay(300);
+}

@@ -1,0 +1,26 @@
+#include <Arduino.h>
+
+#define LDR_PIN 4
+#define ADC_MAX 4095.0
+#define U_REF   3300.0
+
+void setup() {
+  Serial.begin(9600);
+  analogReadResolution(12);   // явно 12 біт
+  
+  Serial.println("RAW\tUcalc(mV)\tUmeas(mV)\tError(%)");
+  Serial.println("----------------------------------------------");
+}
+
+void loop() {
+  int raw = analogRead(LDR_PIN);
+  float Ucalc = (raw / ADC_MAX) * U_REF;          // в мВ
+  int Umeas = analogReadMilliVolts(LDR_PIN);      // в мВ
+  float error = 0;
+  if (Umeas != 0) {
+    error = abs(Ucalc - Umeas) / Umeas * 100.0;
+  }
+  Serial.printf("%d\t%.2f\t\t%d\t\t%.2f\n", raw, Ucalc, Umeas, error);
+
+  delay(100);
+}
